@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>KT Skill Galaxy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen app. Top bar with three views; Galaxy = full 3D canvas + right profile rail; Match = controls | result; Insights = KPI row + heatmap + supply/demand. Deliberately single dark theme (3D star-field product). */
+:root {
+  --bg: #090d15;
+  --surface: #0f1521;
+  --surface-2: #161e2d;
+  --line: #233047;
+  --fg: #e8edf5;
+  --muted: #8e9ab0;
+  --faint: #5d6a80;
+  --accent: #ff3d55;
+  --ok: #4fd18b;
+  --warn: #f2b33d;
+  --font-display: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; background: var(--bg); color: var(--fg); }
+body { font-family: var(--font-body); font-size: 14px; line-height: 1.55; }
+* { box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 16px 24px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand b { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.brand b i { font-style: normal; color: var(--accent); }
+.brand span { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.tabs { display: flex; gap: 4px; }
+.tab { background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 12px; color: var(--muted); cursor: pointer; font-weight: 500; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); background: var(--surface-2); border-color: var(--line); }
+.badge { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+
+.views { flex: 1; min-height: 0; position: relative; }
+.view { position: absolute; inset: 0; overflow: auto; }
+
+/* ---------- Galaxy ---------- */
+.galaxy { display: grid; grid-template-columns: minmax(0, 1fr) 380px; height: 100%; }
+.stage-wrap { position: relative; min-height: 0; overflow: hidden; }
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#stage:active { cursor: grabbing; }
+.overlay-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
+.overlay-top > * { pointer-events: auto; }
+.search { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; width: 170px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--muted); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip[aria-pressed="true"] { color: var(--fg); border-color: var(--fg); }
+.sel { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+.hub-label { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; pointer-events: none; white-space: nowrap; text-shadow: 0 0 8px var(--bg); }
+.tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; white-space: nowrap; transform: translate(12px, -50%); }
+.hint { position: absolute; left: 12px; bottom: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--faint); pointer-events: none; }
+.team-banner { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--accent); border-radius: 99px; padding: 6px 8px 6px 14px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.team-banner button { background: none; border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--muted); }
+
+.rail { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; padding: 18px 18px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.p-head { display: flex; gap: 14px; align-items: center; }
+.avatar { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px; color: var(--bg); flex: none; }
+.p-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.2; }
+.p-meta { color: var(--muted); font-size: 12px; }
+.score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.score { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+.score span { display: block; font-size: 11px; color: var(--muted); }
+.score b { font-family: var(--font-mono); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sec-title { font-size: 11px; font-family: var(--font-mono); letter-spacing: .1em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+.sec-title em { font-style: normal; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.radar-box { display: flex; justify-content: center; }
+.legend-inline { display: flex; gap: 14px; justify-content: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.legend-inline i { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.path { display: flex; flex-direction: column; gap: 8px; counter-reset: s; }
+.path li { list-style: none; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; font-size: 13px; }
+.path li::before { counter-increment: s; content: counter(s); font-family: var(--font-mono); font-size: 11px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); }
+.path small { color: var(--muted); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+.path .why { grid-column: 2 / 4; color: var(--faint); font-size: 12px; margin-top: -4px; }
+ul.path { padding: 0; margin: 0; }
+.people { display: flex; flex-direction: column; gap: 6px; }
+.person { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: left; width: 100%; }
+.person:hover { border-color: var(--line); }
+.person .mini { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--bg); flex: none; }
+.person .who { flex: 1; min-width: 0; }
+.person .who b { font-weight: 600; }
+.person .who span { display: block; font-size: 11px; color: var(--muted); }
+.person .lv { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+/* ---------- Match ---------- */
+.match { display: grid; grid-template-columns: 340px minmax(0, 1fr); min-height: 100%; }
+.m-ctrl { border-right: 1px solid var(--line); background: var(--surface); padding: 20px 18px; display: flex; flex-direction: column; gap: 18px; }
+.m-ctrl h2, .m-out h2, .ins h2 { font-family: var(--font-display); font-size: 20px; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
+.presets { display: flex; flex-direction: column; gap: 6px; }
+.preset { text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+.preset b { display: block; font-weight: 600; }
+.preset span { font-size: 12px; color: var(--muted); }
+.preset[aria-pressed="true"] { border-color: var(--accent); }
+.sliders { display: flex; flex-direction: column; gap: 10px; }
+.slider { display: grid; grid-template-columns: 78px 1fr 34px; gap: 10px; align-items: center; font-size: 13px; }
+.slider label { display: flex; align-items: center; gap: 6px; }
+.slider .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.slider output { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.btn { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: none; border: 1px solid var(--line); color: var(--fg); }
+.m-out { padding: 20px 22px 32px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.m-summary { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: start; }
+.cover { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.cover b { font-family: var(--font-mono); font-size: 44px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.cover span { color: var(--muted); }
+.gaps { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.gap { border-left: 3px solid var(--warn); background: var(--surface); padding: 8px 12px; font-size: 13px; }
+.gap.ok { border-left-color: var(--ok); }
+.gap b { font-weight: 600; }
+.team { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.member { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; text-align: left; }
+.member:hover { border-color: var(--muted); }
+.member .top { display: flex; gap: 10px; align-items: center; }
+.member .fit { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--ok); }
+.member .role { font-size: 12px; color: var(--muted); }
+.bar { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.contrib { font-size: 12px; color: var(--muted); }
+.contrib b { color: var(--fg); font-weight: 500; }
+
+/* ---------- Insights ---------- */
+.ins { padding: 20px 22px 36px; display: flex; flex-direction: column; gap: 22px; max-width: 1180px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.kpi span { font-size: 12px; color: var(--muted); }
+.kpi b { display: block; font-family: var(--font-mono); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.kpi small { color: var(--faint); font-size: 11px; }
+.ins-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.scroll-x { overflow-x: auto; }
+table.heat { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 520px; font-size: 12px; }
+table.heat th { font-weight: 500; color: var(--muted); text-align: left; padding: 4px 6px; white-space: nowrap; }
+table.heat thead th { text-align: center; font-size: 11px; }
+table.heat td { text-align: center; font-family: var(--font-mono); padding: 9px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; cursor: default; }
+.supply { display: flex; flex-direction: column; gap: 12px; }
+.sd-row { display: grid; grid-template-columns: 70px 1fr 64px; gap: 10px; align-items: center; font-size: 12px; }
+.sd-bars { display: flex; flex-direction: column; gap: 3px; }
+.sd-bars i { display: block; height: 7px; border-radius: 2px; }
+.sd-row .n { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.sd-row .n.short { color: var(--warn); }
+.prio { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; }
+.prio li { list-style: none; display: flex; gap: 10px; font-size: 13px; }
+.prio li b { font-family: var(--font-mono); color: var(--accent); font-weight: 500; }
+.foot { color: var(--faint); font-size: 12px; }
+
+@media (max-width: 900px) {
+  .galaxy { grid-template-columns: 1fr; grid-template-rows: 58vh auto; height: auto; }
+  .rail { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .match { grid-template-columns: 1fr; }
+  .m-ctrl { border-right: 0; border-bottom: 1px solid var(--line); }
+  .m-summary, .ins-grid { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .badge { margin-left: 0; }
+}
+@media (max-width: 520px) { .search { width: 100%; } .overlay-top { right: 12px; } }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><b>Skill <i>Galaxy</i></b><span>KT 사내 역량 플랫폼</span></div>
+    <nav class="tabs" role="tablist" aria-label="화면">
+      <button class="tab" role="tab" id="tab-galaxy" aria-selected="true" data-view="galaxy">역량 갤럭시</button>
+      <button class="tab" role="tab" id="tab-match" aria-selected="false" data-view="match">AI 팀 매칭</button>
+      <button class="tab" role="tab" id="tab-ins" aria-selected="false" data-view="ins">조직 인사이트</button>
+    </nav>
+    <span class="badge">샘플 데이터 · AIDx 해커톤 프로토타입</span>
+  </header>
+
+  <div class="views">
+    <!-- Galaxy -->
+    <section class="view" id="view-galaxy">
+      <div class="galaxy">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="stage" aria-label="직원 역량 3D 지도"></canvas>
+          <div id="hubLabels"></div>
+          <div class="overlay-top">
+            <input class="search" id="q" type="search" placeholder="이름 또는 자격증 검색" aria-label="검색">
+            <div class="chips" id="domainChips"></div>
+            <select class="sel" id="minLv" aria-label="최소 레벨">
+              <option value="0">전체 레벨</option>
+              <option value="3">주역량 L3 이상</option>
+              <option value="4">주역량 L4 이상 (전문가)</option>
+            </select>
+          </div>
+          <div class="tip" id="tip" hidden></div>
+          <div class="team-banner" id="teamBanner" hidden><span id="teamBannerText"></span><button id="clearTeam" type="button">해제</button></div>
+          <div class="hint">드래그 회전 · 휠 줌 · 점을 눌러 프로필 보기</div>
+        </div>
+        <aside class="rail" id="rail" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <!-- Match -->
+    <section class="view" id="view-match" hidden>
+      <div class="match">
+        <div class="m-ctrl">
+          <div>
+            <h2>프로젝트 팀 구성</h2>
+            <p class="lead">사업에 필요한 역량 수준을 정하면 가용 인원 중 커버리지가 가장 높은 조합을 찾습니다.</p>
+          </div>
+          <div>
+            <div class="sec-title">사업 유형 프리셋</div>
+            <div class="presets" id="presets"></div>
+          </div>
+          <div>
+            <div class="sec-title">요구 역량 수준 <em>0–5</em></div>
+            <div class="sliders" id="sliders"></div>
+          </div>
+          <div class="row">
+            <label class="check" for="teamSize">인원
+              <select class="sel" id="teamSize"><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
+            </label>
+            <label class="check" for="availOnly"><input type="checkbox" id="availOnly" checked> 투입률 80% 미만만</label>
+          </div>
+          <button class="btn" id="runMatch" type="button">팀 다시 구성</button>
+        </div>
+        <div class="m-out" id="matchOut"></div>
+      </div>
+    </section>
+
+    <!-- Insights -->
+    <section class="view" id="view-ins" hidden>
+      <div class="ins" id="insOut"></div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+(function () {
+'use strict';
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hasGsap = !!window.gsap;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ================= Domain model ================= */
+const DOMAINS = [
+  { id: 'ai',    name: 'AI·데이터', short: 'AI', hex: '#5b8cff' },
+  { id: 'cloud', name: '클라우드',  short: 'CLD', hex: '#36c2d9' },
+  { id: 'net',   name: '네트워크',  short: 'NET', hex: '#4fd18b' },
+  { id: 'sec',   name: '보안',      short: 'SEC', hex: '#e9c94a' },
+  { id: 'sw',    name: 'SW개발',    short: 'SW',  hex: '#b57bff' },
+  { id: 'cons',  name: '컨설팅·제안', short: 'CON', hex: '#ff9a6b' }
+];
+const DI = Object.fromEntries(DOMAINS.map((d, i) => [d.id, i]));
+
+const DEPTS = [
+  { name: 'AX사업본부',     bias: { ai: 3, cons: 2, sw: 1.5, cloud: 1 } },
+  { name: '클라우드사업담당', bias: { cloud: 3.5, sw: 1.5, net: 1, sec: 0.8 } },
+  { name: '네트워크기술본부', bias: { net: 4, cloud: 1, sec: 1 } },
+  { name: '보안사업담당',     bias: { sec: 3.5, net: 1.5, cloud: 1 } },
+  { name: 'B2B영업본부',     bias: { cons: 3.5, ai: 1, cloud: 1 } },
+  { name: 'DX플랫폼개발팀',   bias: { sw: 3.5, ai: 1.5, cloud: 1.5 } }
+];
+const RANKS = [
+  { name: '사원', w: 2, boost: 0 }, { name: '대리', w: 3, boost: 0.4 }, { name: '과장', w: 3, boost: 0.8 },
+  { name: '차장', w: 2, boost: 1.1 }, { name: '부장', w: 1, boost: 1.3 }
+];
+const CERTS = {
+  ai: ['AICE Professional', 'ADsP', 'TensorFlow Developer'],
+  cloud: ['AWS SAA', 'Azure AZ-104', 'CKA'],
+  net: ['CCNP', '정보통신기사', 'NCSE'],
+  sec: ['정보보안기사', 'CISSP', 'CISA'],
+  sw: ['정보처리기사', 'CKAD', 'SQLD'],
+  cons: ['PMP', 'CPSM', '경영지도사']
+};
+const PROJECTS = {
+  ai: ['제조 품질검사 Vision AI PoC', '콜센터 상담요약 LLM 구축', '수요예측 모델 고도화'],
+  cloud: ['금융사 하이브리드 클라우드 전환', 'K8s 기반 MSA 이관', 'DR 센터 구축'],
+  net: ['5G 전용망(이음5G) 구축', '스마트팩토리 사설망 설계', 'SD-WAN 전환'],
+  sec: ['공공기관 보안관제 고도화', 'Zero Trust 아키텍처 도입', 'ISMS-P 인증 컨설팅'],
+  sw: ['사내 영업지원 포털 개발', 'B2B 주문 API 플랫폼', '모바일 현장관리 앱'],
+  cons: ['그룹사 AX 마스터플랜 수립', '제조 AX 제안서 작성', '공공 DX 사업 수주 전략']
+};
+const COURSES = {
+  ai: [['AICE Professional 대비 과정', 24], ['LLM 기반 업무 자동화 실습', 16], ['MLOps 파이프라인 구축', 20]],
+  cloud: [['멀티클라우드 아키텍처 설계', 20], ['Kubernetes 운영 실무', 24], ['클라우드 비용 최적화(FinOps)', 12]],
+  net: [['5G 코어/전용망 설계', 24], ['SDN·네트워크 자동화', 16], ['기업망 트러블슈팅', 12]],
+  sec: [['클라우드 보안 아키텍처', 20], ['Zero Trust 실무', 16], ['침해사고 대응 훈련', 12]],
+  sw: [['MSA·API 설계 패턴', 20], ['AI 코딩 도구 활용 개발', 12], ['테스트 자동화와 CI/CD', 16]],
+  cons: [['AX 제안 전략과 스토리라인', 12], ['고객 업무 진단 방법론', 16], ['사업 수익성 분석', 8]]
+};
+const ROLES = {
+  ai:    { name: 'AI 솔루션 아키텍트', v: [5, 3.5, 2, 2.5, 4, 3.5] },
+  cloud: { name: '클라우드 아키텍트',   v: [2.5, 5, 3.5, 3.5, 3.5, 3] },
+  net:   { name: '네트워크 아키텍트',   v: [2, 3.5, 5, 3.5, 2.5, 3] },
+  sec:   { name: '보안 컨설턴트',       v: [2.5, 3.5, 3.5, 5, 2.5, 3.5] },
+  sw:    { name: '풀스택 개발 리드',    v: [3.5, 4, 2, 3, 5, 2.5] },
+  cons:  { name: 'AX 제안 PM',          v: [3.5, 3, 2.5, 2.5, 2, 5] }
+};
+const PRESETS = [
+  { name: '제조 AX 제안', sub: '스마트팩토리 품질 AI · 사설망', v: [4.5, 3, 3.5, 2, 3.5, 4] },
+  { name: '금융 클라우드 전환', sub: '하이브리드 클라우드 · 규제 대응', v: [2, 4.5, 3, 4, 3.5, 3] },
+  { name: '공공 보안관제 고도화', sub: '관제 AI · Zero Trust', v: [3, 2.5, 4, 4.5, 2.5, 3] }
+];
+// 사업 수요(예시): 다음 분기 수주 파이프라인 기준 필요한 L4+ 전문가 수
+const DEMAND = { ai: 34, cloud: 26, net: 18, sec: 22, sw: 24, cons: 20 };
+
+/* ================= Sample data (seeded) ================= */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(20261013);
+const pickW = (arr, wf) => { const tot = arr.reduce((s, x) => s + wf(x), 0); let r = rnd() * tot; for (const x of arr) { r -= wf(x); if (r <= 0) return x; } return arr[arr.length - 1]; };
+const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const SUR = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황','안','송','류','홍'];
+const GIV = ['민준','서연','지훈','하은','도윤','수빈','현우','지민','예준','유진','승현','다은','준호','소연','태윤','가영','성민','나연','재원','혜린','동현','채원','우진','수아','건우','윤서','시우','예린','정훈','미나'];
+
+const N = 186;
+const people = [];
+const usedNames = new Set();
+for (let i = 0; i < N; i++) {
+  const dept = DEPTS[Math.floor(rnd() * DEPTS.length)];
+  const rank = pickW(RANKS, r => r.w);
+  let name; do { name = SUR[Math.floor(rnd() * SUR.length)] + GIV[Math.floor(rnd() * GIV.length)]; } while (usedNames.has(name) && usedNames.size < 590);
+  usedNames.add(name);
+  const primary = pickW(DOMAINS, d => (dept.bias[d.id] || 0.25)).id;
+  let secondary = pickW(DOMAINS.filter(d => d.id !== primary), d => (dept.bias[d.id] || 0.3)).id;
+  const lv = DOMAINS.map(d => {
+    let v = 0.6 + rnd() * 1.4;
+    if (d.id === primary) v += 1.6 + rnd() * 1.3 + rank.boost;
+    else if (d.id === secondary) v += 0.6 + rnd() * 1.1 + rank.boost * 0.5;
+    else v += (dept.bias[d.id] ? 0.3 : 0) + rank.boost * 0.2;
+    return Math.round(Math.min(5, Math.max(0.5, v)) * 2) / 2;
+  });
+  const years = { '사원': 1, '대리': 4, '과장': 8, '차장': 13, '부장': 18 }[rank.name] + Math.floor(rnd() * 4);
+  const certs = [];
+  CERTS[primary].forEach(c => { if (rnd() < lv[DI[primary]] / 7) certs.push(c); });
+  if (rnd() < lv[DI[secondary]] / 9) certs.push(CERTS[secondary][Math.floor(rnd() * 3)]);
+  const projects = [PROJECTS[primary][Math.floor(rnd() * 3)]];
+  if (rnd() < 0.6) projects.push(PROJECTS[secondary][Math.floor(rnd() * 3)]);
+  const load = Math.round((0.35 + rnd() * 0.65) * 20) * 5; // 투입률 %
+  const top3 = [...lv].sort((a, b) => b - a).slice(0, 3);
+  const index = Math.round(top3.reduce((s, x) => s + x, 0) / 15 * 100);
+  people.push({ id: i, name, dept: dept.name, rank: rank.name, years, primary, secondary, lv, certs: [...new Set(certs)], projects: [...new Set(projects)], load, index });
+}
+
+/* ================= Helpers ================= */
+const dom = id => DOMAINS[DI[id]];
+const fmt = v => (Math.round(v * 10) / 10).toFixed(1);
+const cos = (a, b) => { let d = 0, x = 0, y = 0; for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; x += a[i] * a[i]; y += b[i] * b[i]; } return d / Math.sqrt(x * y); };
+function avatar(p, cls = 'avatar') { return `<div class="${cls}" style="background:${dom(p.primary).hex}">${esc(p.name[0])}</div>`; }
+
+function radarSVG(series, size = 250) {
+  const cx = size / 2, cy = size / 2, R = size / 2 - 38, n = DOMAINS.length;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + Math.cos(a) * R * v / 5, cy + Math.sin(a) * R * v / 5]; };
+  let s = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="역량 레이더 차트">`;
+  for (let l = 1; l <= 5; l++) s += `<polygon points="${DOMAINS.map((_, i) => pt(i, l).join(',')).join(' ')}" style="fill:none;stroke:var(--line);stroke-width:1"/>`;
+  DOMAINS.forEach((d, i) => {
+    const [x, y] = pt(i, 5); s += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" style="stroke:var(--line)"/>`;
+    const [lx, ly] = pt(i, 6.15);
+    s += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" style="fill:var(--muted);font-size:11px;font-family:var(--font-body)">${d.name}</text>`;
+  });
+  series.forEach(se => {
+    s += `<polygon points="${se.v.map((v, i) => pt(i, v).join(',')).join(' ')}" style="fill:${se.fill || 'none'};stroke:${se.stroke};stroke-width:2;${se.dash ? 'stroke-dasharray:4 3;' : ''}stroke-linejoin:round"/>`;
+    if (se.dots) se.v.forEach((v, i) => { const [x, y] = pt(i, v); s += `<circle cx="${x}" cy="${y}" r="3" style="fill:${se.stroke}"/>`; });
+  });
+  return s + '</svg>';
+}
+function countUp(el, to, dec = 0, suffix = '') {
+  if (!hasGsap || REDUCE) { el.textContent = to.toFixed(dec) + suffix; return; }
+  const o = { v: 0 }; gsap.to(o, { v: to, duration: 0.9, ease: 'power2.out', onUpdate: () => { el.textContent = o.v.toFixed(dec) + suffix; } });
+}
+function enter(els) { if (hasGsap && !REDUCE && els.length) gsap.from(els, { y: 10, opacity: 0, duration: 0.45, stagger: 0.04, ease: 'power2.out', clearProps: 'all' }); }
+
+/* ================= 3D Galaxy (threejs-webgl skill patterns: InstancedMesh, Raycaster, OrbitControls + GSAP camera) ================= */
+const wrap = $('#stageWrap'), canvas = $('#stage');
+let G = null;
+const filter = { domain: null, minLv: 0, q: '' };
+let selected = null, team = null;
+
+function initGalaxy() {
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); } catch (e) { canvas.hidden = true; return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x090d15, 1);
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x090d15, 0.022);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+  camera.position.set(0, 11, 24);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 4; controls.maxDistance = 45;
+  controls.autoRotate = !REDUCE; controls.autoRotateSpeed = 0.35;
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(6, 10, 8); scene.add(dl);
+
+  // stars
+  const sg = new THREE.BufferGeometry(); const sp = new Float32Array(900 * 3);
+  for (let i = 0; i < sp.length; i++) sp[i] = (rnd() - 0.5) * 120;
+  sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0x3a4660, size: 0.12 })));
+
+  // hubs
+  const hubs = DOMAINS.map((d, i) => { const a = i / DOMAINS.length * Math.PI * 2; return new THREE.Vector3(Math.cos(a) * 9, (i % 2 ? 1.6 : -1.6), Math.sin(a) * 9); });
+  const hubGeo = new THREE.SphereGeometry(0.42, 24, 16);
+  hubs.forEach((h, i) => {
+    const m = new THREE.Mesh(hubGeo, new THREE.MeshBasicMaterial({ color: DOMAINS[i].hex, transparent: true, opacity: 0.25 }));
+    m.position.copy(h); scene.add(m);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.66, 48), new THREE.MeshBasicMaterial({ color: DOMAINS[i].hex, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+    ring.position.copy(h); ring.userData.hubRing = true; scene.add(ring);
+  });
+  const labelsEl = $('#hubLabels');
+  labelsEl.innerHTML = DOMAINS.map(d => `<div class="hub-label" style="color:${d.hex}">${d.name}</div>`).join('');
+  const labelNodes = [...labelsEl.children];
+
+  // people as InstancedMesh
+  const geo = new THREE.SphereGeometry(0.17, 16, 12);
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.1 });
+  const mesh = new THREE.InstancedMesh(geo, mat, N);
+  const tmp = new THREE.Object3D();
+  people.forEach(p => {
+    const hp = hubs[DI[p.primary]], hs = hubs[DI[p.secondary]];
+    const spread = 2.9 - p.lv[DI[p.primary]] * 0.32;
+    const pos = hp.clone().lerp(hs, 0.14 + rnd() * 0.12).add(new THREE.Vector3(gauss() * spread, gauss() * spread * 0.55, gauss() * spread));
+    p.pos = pos; p.scale = 0.6 + p.index / 100 * 1.1;
+    tmp.position.copy(pos); tmp.scale.setScalar(p.scale); tmp.updateMatrix();
+    mesh.setMatrixAt(p.id, tmp.matrix);
+    mesh.setColorAt(p.id, new THREE.Color(dom(p.primary).hex));
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  scene.add(mesh);
+
+  // selection ring + link lines
+  const selRing = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+  selRing.visible = false; scene.add(selRing);
+  const lineGeo = new THREE.BufferGeometry(); lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(60 * 6), 3));
+  const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: 0xff3d55, transparent: true, opacity: 0.75 }));
+  lines.frustumCulled = false; scene.add(lines);
+
+  const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2(); const v3 = new THREE.Vector3();
+  function pick(ev) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObject(mesh)[0];
+    return hit && hit.instanceId != null && passes(people[hit.instanceId]) ? people[hit.instanceId] : null;
+  }
+  const tip = $('#tip'); let downAt = null;
+  canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; controls.autoRotate = false; });
+  canvas.addEventListener('pointermove', e => {
+    const p = pick(e);
+    if (p) { const r = wrap.getBoundingClientRect(); tip.hidden = false; tip.style.left = (e.clientX - r.left) + 'px'; tip.style.top = (e.clientY - r.top) + 'px';
+      tip.innerHTML = `<b>${esc(p.name)}</b> ${p.rank} · ${dom(p.primary).name} L${fmt(p.lv[DI[p.primary]])}`; canvas.style.cursor = 'pointer'; }
+    else { tip.hidden = true; canvas.style.cursor = ''; }
+  });
+  canvas.addEventListener('pointerleave', () => { tip.hidden = true; });
+  canvas.addEventListener('pointerup', e => {
+    if (!downAt) return; const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
+    if (moved < 6) { const p = pick(e); if (p) select(p, true); }
+  });
+
+  function resize() { const w = wrap.clientWidth, h = wrap.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(wrap); resize();
+
+  function flyTo(target, dist = 7) {
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    const camPos = target.clone().add(dir.multiplyScalar(dist));
+    if (!hasGsap || REDUCE) { controls.target.copy(target); camera.position.copy(camPos); return; }
+    gsap.to(controls.target, { x: target.x, y: target.y, z: target.z, duration: 1.1, ease: 'power3.inOut' });
+    gsap.to(camera.position, { x: camPos.x, y: camPos.y, z: camPos.z, duration: 1.1, ease: 'power3.inOut' });
+  }
+  function setLines(pairs) {
+    const arr = lineGeo.attributes.position.array; arr.fill(0);
+    pairs.slice(0, 60).forEach(([a, b], k) => { arr.set([a.x, a.y, a.z, b.x, b.y, b.z], k * 6); });
+    lineGeo.setDrawRange(0, Math.min(pairs.length, 60) * 2); lineGeo.attributes.position.needsUpdate = true;
+  }
+  const base = new THREE.Color(), dimC = new THREE.Color(0x1a2233);
+  function recolor() {
+    people.forEach(p => {
+      base.set(dom(p.primary).hex);
+      let on = passes(p); if (team && !team.includes(p)) on = false;
+      if (!on) base.lerp(dimC, 0.85);
+      mesh.setColorAt(p.id, base);
+    });
+    mesh.instanceColor.needsUpdate = true;
+  }
+  let running = true;
+  function frame() {
+    if (!running) return;
+    controls.update();
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    hubs.forEach((hp, i) => { v3.copy(hp).project(camera); const n = labelNodes[i]; if (v3.z > 1) { n.hidden = true; return; } n.hidden = false; n.style.left = ((v3.x + 1) / 2 * w) + 'px'; n.style.top = ((-v3.y + 1) / 2 * h - 22) + 'px'; });
+    scene.children.forEach(o => { if (o.userData.hubRing) o.lookAt(camera.position); });
+    if (selRing.visible) selRing.lookAt(camera.position);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  frame();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) running = false; else if (!running) { running = true; frame(); } });
+  return { hubs, flyTo, setLines, recolor, selRing, controls };
+}
+
+function passes(p) {
+  if (filter.domain && p.primary !== filter.domain) return false;
+  if (p.lv[DI[p.primary]] < filter.minLv) return false;
+  if (filter.q) { const q = filter.q.toLowerCase(); if (!p.name.includes(filter.q) && !p.certs.some(c => c.toLowerCase().includes(q)) && !p.dept.includes(filter.q)) return false; }
+  return true;
+}
+
+/* ================= Profile rail ================= */
+function growth(p) {
+  const role = ROLES[p.primary];
+  const gaps = DOMAINS.map((d, i) => ({ d, i, gap: role.v[i] - p.lv[i] })).filter(g => g.gap > 0.4).sort((a, b) => b.gap - a.gap).slice(0, 3);
+  return { role, gaps };
+}
+function mentorsFor(p, gaps) {
+  const axis = gaps.length ? gaps[0].i : DI[p.primary];
+  return people.filter(o => o !== p && o.lv[axis] >= 4 && o.load < 90)
+    .sort((a, b) => (b.lv[axis] - a.lv[axis]) || ((b.dept === p.dept) - (a.dept === p.dept)) || (b.index - a.index)).slice(0, 3)
+    .map(o => ({ o, axis }));
+}
+function select(p, fly) {
+  selected = p;
+  const { role, gaps } = growth(p);
+  const mentors = mentorsFor(p, gaps);
+  const hex = dom(p.primary).hex;
+  $('#rail').innerHTML = `
+    <div class="p-head">${avatar(p)}<div><div class="p-name">${esc(p.name)} <span class="p-meta">${p.rank}</span></div>
+      <div class="p-meta">${p.dept} · ${p.years}년차 · 주역량 <span style="color:${hex}">${dom(p.primary).name}</span></div></div></div>
+    <div class="score-row">
+      <div class="score"><span>역량지수</span><b id="sIdx">${p.index}</b></div>
+      <div class="score"><span>주역량 레벨</span><b>L${fmt(p.lv[DI[p.primary]])}</b></div>
+      <div class="score"><span>현재 투입률</span><b style="color:${p.load >= 80 ? 'var(--warn)' : 'var(--fg)'}">${p.load}%</b></div>
+    </div>
+    <div>
+      <div class="sec-title">역량 프로필 <em>목표 직무: ${role.name}</em></div>
+      <div class="radar-box">${radarSVG([{ v: role.v, stroke: 'var(--muted)', dash: true }, { v: p.lv, stroke: hex, fill: hex + '33', dots: true }])}</div>
+      <div class="legend-inline"><span><i style="border-color:${hex}"></i>현재</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>목표 직무</span></div>
+    </div>
+    <div><div class="sec-title">보유 자격</div><div class="tags">${p.certs.length ? p.certs.map(c => `<span class="tag">${esc(c)}</span>`).join('') : '<span class="p-meta">등록된 자격 없음</span>'}</div></div>
+    <div><div class="sec-title">최근 프로젝트</div><div class="tags">${p.projects.map(c => `<span class="tag">${esc(c)}</span>`).join('')}</div></div>
+    <div><div class="sec-title">AI 성장 경로 추천</div>
+      ${gaps.length ? `<ul class="path">${gaps.map(g => { const c = COURSES[g.d.id][Math.min(2, Math.floor(p.lv[g.i] / 2))]; return `<li><span>${esc(c[0])}</span><small>${c[1]}h</small><span class="why">${g.d.name} L${fmt(p.lv[g.i])} → 목표 L${fmt(role.v[g.i])}</span></li>`; }).join('')}</ul>`
+        : '<p class="p-meta">목표 직무 수준을 모두 충족했습니다. 사내 강사 또는 멘토 활동을 추천합니다.</p>'}
+    </div>
+    <div><div class="sec-title">멘토 추천 <em>${dom(DOMAINS[mentors[0] ? mentors[0].axis : 0].id).name} L4+ 보유</em></div>
+      <div class="people">${mentors.map(({ o, axis }) => `<button class="person" type="button" data-pid="${o.id}">${avatar(o, 'mini')}<span class="who"><b>${esc(o.name)}</b> <span>${o.dept} · ${o.rank}</span></span><span class="lv">L${fmt(o.lv[axis])}</span></button>`).join('')}</div>
+    </div>`;
+  enter([...$('#rail').children]);
+  if (G) {
+    G.selRing.position.copy(p.pos); G.selRing.visible = true;
+    if (!team) G.setLines(mentors.map(m => [p.pos, m.o.pos]));
+    if (fly) G.flyTo(p.pos, 7);
+  }
+}
+$('#rail').addEventListener('click', e => { const b = e.target.closest('[data-pid]'); if (b) select(people[+b.dataset.pid], true); });
+
+/* ================= Filters ================= */
+$('#domainChips').innerHTML = DOMAINS.map(d => `<button class="chip" type="button" aria-pressed="false" data-d="${d.id}"><span class="dot" style="background:${d.hex}"></span>${d.name}</button>`).join('');
+$('#domainChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  filter.domain = filter.domain === b.dataset.d ? null : b.dataset.d;
+  [...$('#domainChips').children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.d === filter.domain)));
+  if (G) { G.recolor(); if (filter.domain) G.flyTo(G.hubs[DI[filter.domain]], 11); }
+});
+$('#minLv').addEventListener('change', e => { filter.minLv = +e.target.value; G && G.recolor(); });
+$('#q').addEventListener('input', e => {
+  filter.q = e.target.value.trim(); G && G.recolor();
+  if (filter.q) { const m = people.filter(passes); if (m.length === 1) select(m[0], true); }
+});
+
+/* ================= Team matching ================= */
+let req = PRESETS[0].v.slice(), presetIdx = 0;
+$('#presets').innerHTML = PRESETS.map((p, i) => `<button class="preset" type="button" data-i="${i}" aria-pressed="${i === 0}"><b>${p.name}</b><span>${p.sub}</span></button>`).join('');
+$('#sliders').innerHTML = DOMAINS.map((d, i) => `<div class="slider"><label for="r-${d.id}"><span class="dot" style="background:${d.hex}"></span>${d.name}</label><input type="range" id="r-${d.id}" min="0" max="5" step="0.5" value="${req[i]}" data-i="${i}"><output id="o-${d.id}">${fmt(req[i])}</output></div>`).join('');
+function syncSliders() { DOMAINS.forEach((d, i) => { $('#r-' + d.id).value = req[i]; $('#o-' + d.id).textContent = fmt(req[i]); }); }
+$('#presets').addEventListener('click', e => {
+  const b = e.target.closest('.preset'); if (!b) return; presetIdx = +b.dataset.i; req = PRESETS[presetIdx].v.slice();
+  [...$('#presets').children].forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.i === presetIdx))); syncSliders(); runMatch();
+});
+$('#sliders').addEventListener('input', e => {
+  if (e.target.type !== 'range') return; const i = +e.target.dataset.i; req[i] = +e.target.value; $('#o-' + DOMAINS[i].id).textContent = fmt(req[i]);
+  presetIdx = -1; [...$('#presets').children].forEach(c => c.setAttribute('aria-pressed', 'false'));
+});
+$('#runMatch').addEventListener('click', runMatch);
+$('#teamSize').addEventListener('change', runMatch);
+$('#availOnly').addEventListener('change', runMatch);
+
+function coverage(members) {
+  const tot = req.reduce((s, r) => s + r * r, 0) || 1;
+  let got = 0; req.forEach((r, i) => { const best = Math.max(0, ...members.map(m => m.lv[i])); got += r * Math.min(best, r); });
+  return got / tot;
+}
+function fitOf(p) { const tot = req.reduce((s, r) => s + r * r, 0) || 1; return req.reduce((s, r, i) => s + r * Math.min(p.lv[i], r), 0) / tot; }
+let lastTeam = [];
+function runMatch() {
+  const size = +$('#teamSize').value; const avail = $('#availOnly').checked;
+  const pool = people.filter(p => !avail || p.load < 80);
+  const chosen = [];
+  while (chosen.length < size && chosen.length < pool.length) {
+    let best = null, bestS = -1; const c0 = coverage(chosen);
+    for (const p of pool) { if (chosen.includes(p)) continue; const s = (coverage([...chosen, p]) - c0) + 0.12 * fitOf(p) + (100 - p.load) / 4000; if (s > bestS) { bestS = s; best = p; } }
+    chosen.push(best);
+  }
+  lastTeam = chosen;
+  const cov = coverage(chosen);
+  const teamMax = req.map((_, i) => Math.max(...chosen.map(m => m.lv[i])));
+  const gaps = DOMAINS.map((d, i) => ({ d, i, need: req[i], have: teamMax[i] })).filter(g => g.need > 0);
+  const short = gaps.filter(g => g.have < g.need);
+  const title = presetIdx >= 0 ? PRESETS[presetIdx].name : '사용자 지정 요구역량';
+  $('#matchOut').innerHTML = `
+    <div><h2>${esc(title)} 추천 팀</h2><p class="lead">가용 인원 ${pool.length}명 중 요구 역량 커버리지를 최대화하는 ${size}명 조합입니다. 같은 역량은 팀 내 최고 레벨로 계산합니다.</p></div>
+    <div class="m-summary">
+      <div>
+        <div class="cover"><b id="covNum">0%</b><span>요구 역량 커버리지</span></div>
+        <div class="gaps">${short.length ? short.map(g => `<div class="gap"><b>${g.d.name}</b> 요구 L${fmt(g.need)} · 팀 최고 L${fmt(g.have)} — ${esc(COURSES[g.d.id][1][0])} 이수 또는 타 조직 지원 요청 권장</div>`).join('')
+          : '<div class="gap ok"><b>모든 요구 역량 충족</b> 추가 인력 없이 착수 가능합니다.</div>'}</div>
+        <div class="row" style="margin-top:14px"><button class="btn ghost" id="showTeam" type="button">갤럭시에서 팀 보기</button></div>
+      </div>
+      <div><div class="radar-box">${radarSVG([{ v: req, stroke: 'var(--muted)', dash: true }, { v: teamMax, stroke: 'var(--accent)', fill: 'rgba(255,61,85,.18)', dots: true }], 250)}</div>
+        <div class="legend-inline"><span><i style="border-color:var(--accent)"></i>팀 최고</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>요구 수준</span></div></div>
+    </div>
+    <div class="team">${chosen.map(p => {
+      const contrib = DOMAINS.map((d, i) => ({ d, i, v: p.lv[i] })).filter(x => req[x.i] > 0 && x.v === teamMax[x.i]).sort((a, b) => req[b.i] - req[a.i]).slice(0, 2);
+      const f = Math.round(fitOf(p) * 100);
+      return `<button class="member" type="button" data-pid="${p.id}"><div class="top">${avatar(p, 'mini')}<div><b>${esc(p.name)}</b> <span class="role">${p.rank}</span><div class="role">${p.dept}</div></div><span class="fit">${f}%</span></div>
+        <div class="bar"><i style="width:${f}%;background:${dom(p.primary).hex}"></i></div>
+        <div class="contrib">${contrib.length ? '팀 내 최고: ' + contrib.map(c => `<b>${c.d.name} L${fmt(c.v)}</b>`).join(', ') : '보조 역량 기여'} · 투입률 ${p.load}%</div></button>`;
+    }).join('')}</div>`;
+  countUp($('#covNum'), cov * 100, 0, '%');
+  enter([...$('#matchOut').querySelectorAll('.gap, .member')]);
+}
+$('#matchOut').addEventListener('click', e => {
+  if (e.target.closest('#showTeam')) { showTeamInGalaxy(); return; }
+  const m = e.target.closest('.member'); if (m) { showView('galaxy'); select(people[+m.dataset.pid], true); }
+});
+function showTeamInGalaxy() {
+  team = lastTeam.slice(); showView('galaxy');
+  $('#teamBanner').hidden = false; $('#teamBannerText').textContent = `추천 팀 ${team.length}명 표시 중`;
+  if (G) {
+    G.recolor();
+    const pairs = []; team.forEach((a, i) => team.slice(i + 1).forEach(b => pairs.push([a.pos, b.pos]))); G.setLines(pairs);
+    const c = team.reduce((s, p) => s.add(p.pos), new THREE.Vector3()).multiplyScalar(1 / team.length);
+    G.flyTo(c, 13);
+  }
+  select(team[0], false);
+}
+$('#clearTeam').addEventListener('click', () => { team = null; $('#teamBanner').hidden = true; if (G) { G.recolor(); } if (selected) select(selected, false); });
+
+/* ================= Insights ================= */
+function renderInsights() {
+  const avgIdx = people.reduce((s, p) => s + p.index, 0) / N;
+  const aiL3 = people.filter(p => p.lv[DI.ai] >= 3).length / N * 100;
+  const certAvg = people.reduce((s, p) => s + p.certs.length, 0) / N;
+  const experts = Object.fromEntries(DOMAINS.map(d => [d.id, people.filter(p => p.lv[DI[d.id]] >= 4).length]));
+  const maxBar = Math.max(...DOMAINS.map(d => Math.max(experts[d.id], DEMAND[d.id])));
+  const shortages = DOMAINS.map(d => ({ d, short: DEMAND[d.id] - experts[d.id] })).sort((a, b) => b.short - a.short);
+  const heat = DEPTS.map(dep => { const ms = people.filter(p => p.dept === dep.name); return { dep, n: ms.length, avg: DOMAINS.map((_, i) => ms.reduce((s, p) => s + p.lv[i], 0) / (ms.length || 1)) }; });
+  const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
+  $('#insOut').innerHTML = `
+    <div><h2>조직 역량 현황</h2><p class="lead">부서별 평균 레벨과 사업 수요 대비 전문가 공급을 한 화면에서 봅니다.</p></div>
+    <div class="kpis">
+      <div class="kpi"><span>분석 대상 인원</span><b data-c="${N}">0</b><small>${DEPTS.length}개 조직</small></div>
+      <div class="kpi"><span>평균 역량지수</span><b data-c="${avgIdx.toFixed(1)}" data-d="1">0</b><small>상위 3개 역량 기준, 100점 만점</small></div>
+      <div class="kpi"><span>AI·데이터 L3 이상</span><b data-c="${aiL3.toFixed(1)}" data-d="1" data-s="%">0</b><small>전사 AX 목표 대비 추적 지표</small></div>
+      <div class="kpi"><span>1인당 보유 자격</span><b data-c="${certAvg.toFixed(2)}" data-d="2">0</b><small>AICE 등 사내 인정 자격 포함</small></div>
+    </div>
+    <div class="ins-grid">
+      <div class="card"><div class="sec-title">부서 × 역량 평균 레벨 <em>색이 진할수록 높음</em></div>
+        <div class="scroll-x"><table class="heat"><thead><tr><th></th>${DOMAINS.map(d => `<th style="color:${d.hex}">${d.name}</th>`).join('')}</tr></thead>
+        <tbody>${heat.map(r => `<tr><th>${r.dep.name} <span style="color:var(--faint)">${r.n}</span></th>${r.avg.map((v, i) => `<td title="${r.dep.name} ${DOMAINS[i].name} 평균 L${fmt(v)}" style="background:${rgba(DOMAINS[i].hex, Math.max(0.06, (v - 0.5) / 4.5 * 0.85))};color:${v >= 3.4 ? '#0a0e16' : 'var(--fg)'}">${fmt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      </div>
+      <div class="card"><div class="sec-title">전문가(L4+) 공급 vs 다음 분기 수요 <em>수요는 예시</em></div>
+        <div class="supply">${DOMAINS.map(d => { const s = experts[d.id], q = DEMAND[d.id]; return `<div class="sd-row"><span>${d.name}</span><div class="sd-bars"><i style="width:${s / maxBar * 100}%;background:${d.hex}"></i><i style="width:${q / maxBar * 100}%;background:var(--line)"></i></div><span class="n ${s < q ? 'short' : ''}">${s} / ${q}</span></div>`; }).join('')}</div>
+        <div class="legend-inline" style="justify-content:flex-start;margin-top:10px"><span><i style="border-color:var(--muted)"></i>위: 현재 보유</span><span><i style="border-color:var(--line)"></i>아래: 수요</span></div>
+      </div>
+    </div>
+    <div class="card"><div class="sec-title">이번 분기 육성 우선순위</div>
+      <ol class="prio">${shortages.slice(0, 3).map(s => `<li><b>${s.short > 0 ? '−' + s.short : '충족'}</b><span><span style="color:${s.d.hex}">${s.d.name}</span> 전문가 ${s.short > 0 ? s.short + '명 부족' : '수요 충족'} · L3 인원 ${people.filter(p => p.lv[DI[s.d.id]] >= 3 && p.lv[DI[s.d.id]] < 4).length}명을 ${esc(COURSES[s.d.id][2][0])} 과정으로 L4 전환 시 우선 해소</span></li>`).join('')}</ol>
+    </div>
+    <p class="foot">모든 인물·조직 수치는 프로토타입 시연용 샘플 데이터입니다. 실제 KT 직원 정보가 아닙니다.</p>`;
+  $('#insOut').querySelectorAll('[data-c]').forEach(el => countUp(el, +el.dataset.c, +(el.dataset.d || 0), el.dataset.s || ''));
+  enter([...$('#insOut').querySelectorAll('.kpi, .card, td')].slice(0, 60));
+}
+
+/* ================= View switching ================= */
+const rendered = { match: false, ins: false };
+function showView(v) {
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === v)));
+  ['galaxy', 'match', 'ins'].forEach(id => { $('#view-' + id).hidden = id !== v; });
+  if (v === 'match' && !rendered.match) { rendered.match = true; runMatch(); }
+  if (v === 'ins') { renderInsights(); }
+  if (v === 'galaxy') window.dispatchEvent(new Event('resize'));
+}
+document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) showView(t.dataset.view); });
+
+/* ================= Boot ================= */
+G = initGalaxy();
+const start = people.filter(p => p.primary === 'ai').sort((a, b) => b.index - a.index)[2] || people[0];
+select(start, false);
+})();
+</script>
+
+</body>
+</html>
