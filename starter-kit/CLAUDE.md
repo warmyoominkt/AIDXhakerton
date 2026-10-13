@@ -30,5 +30,5 @@
 
 ## 기술 기준
 - 프런트엔드: React 계열 필수 (React / Next.js)
-- UI: KDS(KT UX Design System) 컴포넌트 우선. 직접 만든 컴포넌트는 이유를 docs/arch.md에 기록
+- UI: 디자인 기준 [KDS(KT UX Design System) 또는 shadcn/ui 등 하나로 확정] 컴포넌트 우선. KDS는 필수 아님. 직접 만든 컴포넌트는 이유를 docs/arch.md에 기록
 - 예시·mock 데이터는 코드와 화면에서 실제 데이터와 구분 표시
