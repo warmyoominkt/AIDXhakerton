@@ -9,7 +9,8 @@ AIDx 해커톤 Pro-Code 부문 준비용 참고 레포입니다. 실제 제출�
 | [resources/리소스_정리.md](resources/리소스_정리.md) | 라이브러리·스킬·프롬프트 목록, 일정 체크리스트 |
 | [starter-kit/](starter-kit/) | 팀 저장소에 복사해 쓸 기본 세트 |
 | [starter-kit/CLAUDE.md](starter-kit/CLAUDE.md) | Claude 작업 규칙 (ID 체계, 상태값, 커밋 규칙) |
-| [starter-kit/README.md](starter-kit/README.md) | 제출용 README 양식 |
+| [starter-kit/README.md](starter-kit/README.md) | 제출용 README 양식 (환경 버전, 설치→빌드→기동→시험→종료, 재현 확인 기록) |
+| [starter-kit/.env.example](starter-kit/.env.example) | 비밀값 없는 설정 예시 |
 | [starter-kit/docs/](starter-kit/docs/) | 제출 문서 7종 양식 |
 
 ## 제출 문서 8종
