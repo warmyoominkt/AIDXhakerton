@@ -7,7 +7,6 @@ AIDx 해커톤 Pro-Code 부문 준비용 참고 레포입니다. 실제 제출�
 | 경로 | 내용 |
 |---|---|
 | [resources/리소스_정리.md](resources/리소스_정리.md) | 분류별·순위별 라이브러리·스킬(공식 예시 이미지 포함), 프롬프트 7종, 일정 체크리스트 |
-| [resources/demos/skill-galaxy.html](resources/demos/skill-galaxy.html) | claudedesignskills로 만든 3D 역량 플랫폼 데모 (샘플 데이터) |
 | [starter-kit/](starter-kit/) | 팀 저장소에 복사해 쓸 기본 세트 |
 | [starter-kit/CLAUDE.md](starter-kit/CLAUDE.md) | Claude 작업 규칙 (ID 체계, 상태값, 커밋 규칙) |
 | [starter-kit/README.md](starter-kit/README.md) | 제출용 README 양식 (환경 버전, 설치→빌드→기동→시험→종료, 재현 확인 기록) |
